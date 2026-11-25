@@ -36,8 +36,12 @@ WINDOW_NAME = "JARVIS-Vision v0.1"
 
 # Requested capture resolution. The driver may ignore these and hand back a
 # different size; all downstream math uses the ACTUAL frame size, never these.
-CAPTURE_WIDTH = 1280
-CAPTURE_HEIGHT = 720
+#
+# 640x480 is the default because MediaPipe hand inference here runs CPU-only
+# (XNNPACK): ~8 fps at 1280x720 vs ~19 fps at 640x480. Raise these if you have
+# GPU delegation or a faster machine and want the extra resolution.
+CAPTURE_WIDTH = 640
+CAPTURE_HEIGHT = 480
 
 # Mirror the frame horizontally so the feed behaves like a mirror: move your
 # hand right, the on-screen hand moves right. This is what makes direct
@@ -119,7 +123,12 @@ RESIZE_MIN_PX = 40   # two-hand resize clamp, lower bound (M6)
 RESIZE_MAX_PX = 240  # two-hand resize clamp, upper bound (M6)
 # The two pinch points must start at least this far apart to begin a resize --
 # below it the distance ratio is too noisy to scale from.
-RESIZE_MIN_BASELINE_PX = 24
+RESIZE_MIN_BASELINE_PX = 18
+# How far outside an icon's box a pinch point still counts as "on" that icon
+# when STARTING a two-hand resize (M8). Icons can be as small as ~55 px, so
+# demanding both pinch points strictly inside made the gesture near-impossible
+# to trigger; this grows the target to a comfortable size.
+RESIZE_ENTRY_INFLATE_PX = 55
 
 # Grid layout for icons loaded from a folder (M3). Positions are in displayed-
 # frame pixel space and recomputed whenever the frame size is known. The grid

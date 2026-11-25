@@ -294,9 +294,14 @@ def draw_hud(
             f"[{config.RESIZE_MIN_PX}-{config.RESIZE_MAX_PX}]",
             (12, y + 4), config.COLOR_ICON_RESIZING_BORDER, config.HUD_FONT_SCALE,
         )
+    elif sum(1 for g in gestures if g.pinch_state is PinchState.PINCHING) == 2:
+        _text(
+            frame, "two-hand pinch -- bring both onto ONE file to resize it",
+            (12, y + 4), config.COLOR_ICON_RESIZING_BORDER, config.HUD_FONT_SCALE,
+        )
 
     _text(
-        frame, "M6: two-hand resize  |  open-palm / SPACE cancels  |  q / ESC quit",
+        frame, "M8: resize (grab a file, join with 2nd hand)  |  SPACE cancels  |  q / ESC quit",
         (12, frame.shape[0] - 14), config.COLOR_TEXT, config.HUD_FONT_SCALE,
     )
 

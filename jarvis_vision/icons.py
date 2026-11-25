@@ -76,11 +76,12 @@ class FileIcon:
     def center(self) -> tuple[float, float]:
         return (self.x + self.w / 2.0, self.y + self.h / 2.0)
 
-    def contains(self, point) -> bool:
-        """Is `point` (x, y) inside this icon's bounding box?"""
+    def contains(self, point, margin: float = 0.0) -> bool:
+        """Is `point` (x, y) inside this icon's box (optionally grown by `margin`)?"""
         px, py = float(point[0]), float(point[1])
         left, top, right, bottom = self.bbox
-        return left <= px <= right and top <= py <= bottom
+        return (left - margin <= px <= right + margin
+                and top - margin <= py <= bottom + margin)
 
     @property
     def locked(self) -> bool:
@@ -327,7 +328,23 @@ class IconManager:
                     self._release(icon)
             self._run_resize(target, span[0], span[1])
             return drops
+
+        # Resize just ended: if one hand is still pinching on the icon, hand it
+        # straight back as a one-hand drag instead of dropping it.
+        ended = self._resize.icon if self._resize is not None else None
         self._end_resize()
+        if ended is not None and ended in self.icons and not ended.locked:
+            for gesture in gestures:
+                if gesture.pinch_state is PinchState.PINCHING and ended.contains(
+                    gesture.pinch_point, config.RESIZE_ENTRY_INFLATE_PX
+                ):
+                    px, py = float(gesture.pinch_point[0]), float(gesture.pinch_point[1])
+                    ended.grabbed = True
+                    ended.grabbed_by = gesture.handedness
+                    ended.grab_offset = (px - ended.x, py - ended.y)
+                    ended.home = (ended.x, ended.y)
+                    self._raise_to_top(ended)
+                    break
 
         # GRAB: a fresh pinch that lands on a free icon.
         for gesture in gestures:
@@ -388,8 +405,12 @@ class IconManager:
         """The icon a two-hand resize applies to this frame, or None.
 
         An in-progress resize continues as long as both hands keep pinching.
-        A fresh resize starts only when both pinch points sit inside one icon's
-        box and are at least RESIZE_MIN_BASELINE_PX apart.
+        A fresh resize starts (M8) when the two pinch points are at least
+        RESIZE_MIN_BASELINE_PX apart and either:
+          * one hand is already holding an icon and the other pinches within
+            RESIZE_ENTRY_INFLATE_PX of it (grab it, then join with the 2nd
+            hand -- the forgiving path), or
+          * both points land within that margin of the same free icon.
         """
         if span is None:
             return None
@@ -404,8 +425,18 @@ class IconManager:
 
         if float(np.hypot(*(pa - pb))) < config.RESIZE_MIN_BASELINE_PX:
             return None
+
+        margin = config.RESIZE_ENTRY_INFLATE_PX
+
+        # Sequential: one hand holds an icon, the second hand joins near it.
+        for icon in self.icons:
+            if icon.grabbed and not icon.locked:
+                if icon.contains(pa, margin) and icon.contains(pb, margin):
+                    return icon
+
+        # Simultaneous: both points land on the same free icon.
         for icon in reversed(self.icons):
-            if not icon.locked and icon.contains(pa) and icon.contains(pb):
+            if not icon.locked and icon.contains(pa, margin) and icon.contains(pb, margin):
                 return icon
         return None
 
